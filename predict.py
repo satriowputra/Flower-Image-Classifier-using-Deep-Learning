@@ -1,10 +1,11 @@
 # importing the packages
+import argparse
 import pandas as pd
 import numpy as np
 import json
 # import matplotlib; matplotlib.use('agg')
 # import matplotlib.pyplot as plt
-import seaborn as sb
+# import seaborn as sb
 
 import torch
 from torch import nn, optim
@@ -14,8 +15,18 @@ from torchvision import datasets, transforms, models
 from time import time
 from workspace_utils import active_session
 
+parser = argparse.ArgumentParser(description='Arguments',)
+
+parser.add_argument('data_directory', action='store')
+parser.add_argument('checkpoint_dir', action='store')
+parser.add_argument('--top_k', action='store', default=5, dest='top_k', type=int)
+parser.add_argument('--category_names', action='store', default='cat_to_name.json', dest='category_names')
+parser.add_argument('--gpu', action='store_true', default=False, dest='boolean_gpu')
+
+results = parser.parse_args()
+
 # Dataset directory
-data_dir = 'flowers'
+data_dir = results.data_directory
 train_dir = data_dir + '/train'
 valid_dir = data_dir + '/valid'
 test_dir = data_dir + '/test'
@@ -50,11 +61,16 @@ trainloaders = torch.utils.data.DataLoader(train_datasets, batch_size=64, shuffl
 validloaders = torch.utils.data.DataLoader(valid_datasets, batch_size=64)
 testloaders = torch.utils.data.DataLoader(test_datasets, batch_size=64)
 
-with open('cat_to_name.json', 'r') as f:
+with open(results.category_names, 'r') as f:
     cat_to_name = json.load(f)
 
+device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+
 # TODO: Write a function that loads a checkpoint and rebuilds the model
-checkpoint = torch.load('checkpoint.pth')
+if results.boolean_gpu == False:
+    checkpoint = torch.load(results.checkpoint_dir, map_location='cpu')
+elif results.boolean_gpu == True:
+    checkpoint = torch.load(results.checkpoint_dir)
 
 if checkpoint['tl_arch'] == 'densenet161':
     model = models.densenet161(pretrained=True)
@@ -76,7 +92,6 @@ else:
     
 # Testing loaded network
 start = time()
-device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 model.to(device);
 running_loss = 0
 validation_loss = 0
@@ -158,7 +173,7 @@ def process_image(image):
 
 # imshow(input)
 
-def predict(image_path, model, topk=5):
+def predict(image_path, model, topk=results.top_k):
     ''' Predict the class (or classes) of an image using a trained deep learning model.
     '''
     # TODO: Implement the code to predict the class from an image file

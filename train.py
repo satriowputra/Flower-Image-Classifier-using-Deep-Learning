@@ -1,9 +1,10 @@
 # importing the packages
+import argparse
 import pandas as pd
 import numpy as np
 # import matplotlib; matplotlib.use('agg')
 # import matplotlib.pyplot as plt
-import seaborn as sb
+# import seaborn as sb
 
 import torch
 from torch import nn, optim
@@ -13,8 +14,20 @@ from torchvision import datasets, transforms, models
 from time import time
 from workspace_utils import active_session
 
+parser = argparse.ArgumentParser(description='Arguments',)
+
+parser.add_argument('data_directory', action='store')
+parser.add_argument('--save_dir', action='store', default='checkpoint.pth', dest='save_dir')
+parser.add_argument('--arch', action='store', default='densenet161', dest='arch')
+parser.add_argument('--learning_rate', action='store', default=0.003, dest='learning_rate', type=int)
+parser.add_argument('--hidden_unit', action='store', default=0, dest='hidden_unit', type=int)
+parser.add_argument('--epochs', action='store', default=5, dest='epochs', type=int)
+parser.add_argument('--gpu', action='store_true', default=False, dest='boolean_gpu')
+
+results = parser.parse_args()
+
 # Dataset directory
-data_dir = 'flowers'
+data_dir = results.data_directory
 train_dir = data_dir + '/train'
 valid_dir = data_dir + '/valid'
 test_dir = data_dir + '/test'
@@ -51,32 +64,58 @@ testloaders = torch.utils.data.DataLoader(test_datasets, batch_size=64)
 
 # TODO: Build and train your network
 # Make model select GPU as processing unit if available
-device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+device = torch.device("cuda" if results.boolean_gpu == True else "cpu")
 
-# Selecting pre-trained model
-model = models.densenet161(pretrained=True)
-model
+if results.arch == 'densenet161':
+    # Selecting pre-trained model
+    model = models.densenet161(pretrained=True)
+    model
 
-# Freze our parameter so there is no backprop through it
-for param in model.parameters():
-    param.requires_grad = False
+    # Freze our parameter so there is no backprop through it
+    for param in model.parameters():
+        param.requires_grad = False
 
-model.classifier = nn.Sequential(nn.Linear(2208, 1000),
-                           nn.ReLU(),
-                           nn.Dropout(0.2),
-                           nn.Linear(1000,102),
-                           nn.LogSoftmax(dim=1))
+    if results.hidden_unit == 0:
+        unit_densenet161 = 1000
+    else:
+        unit_densenet161 = results.hidden_unit
+
+    model.classifier = nn.Sequential(nn.Linear(2208, unit_densenet161),
+                               nn.ReLU(),
+                               nn.Dropout(0.2),
+                               nn.Linear(unit_densenet161,102),
+                               nn.LogSoftmax(dim=1))
+
+elif results.arch == 'vgg16':
+    # Selecting pre-trained model
+    model = models.vgg16(pretrained=True)
+    model
+
+    # Freze our parameter so there is no backprop through it
+    for param in model.parameters():
+        param.requires_grad = False
+    
+    if results.hidden_unit == 0:
+        unit_vgg16 = 4096
+    else:
+        unit_vgg16 = results.hidden_unit
+        
+    model.classifier = nn.Sequential(nn.Linear(25088, unit_vgg16),
+                               nn.ReLU(),
+                               nn.Dropout(0.2),
+                               nn.Linear(unit_vgg16,102),
+                               nn.LogSoftmax(dim=1))
 
 criterion = nn.NLLLoss()
 
 # Making sure we only train the classifier parameters and feature parameters are frozen
-optimizer = optim.Adam(model.classifier.parameters(), lr=0.003)
+optimizer = optim.Adam(model.classifier.parameters(), lr=results.learning_rate)
 
 model.to(device);
 
 with active_session():
     start = time()
-    epochs = 1
+    epochs = results.epochs
     steps = 0
     train_losses, validation_losses = [], []
     running_loss = 0
@@ -149,12 +188,23 @@ print(f"Test accuracy: {accuracy/len(testloaders):.3f}.. "
 # TODO: Save the checkpoint
 model.class_to_idx = train_datasets.class_to_idx
 model.cpu()
-state = {
-          'tl_arch': 'densenet161',
-          'epoch': epoch,
-          'state_dict': model.state_dict(),
-          'optimizer': optimizer.state_dict(),
-          'class_to_idx': model.class_to_idx
-        }
-savepath='checkpoint.pth'
+if results.arch == 'densenet161':
+    state = {
+              'tl_arch': 'densenet161',
+              'epoch': epoch,
+              'state_dict': model.state_dict(),
+              'optimizer': optimizer.state_dict(),
+              'class_to_idx': model.class_to_idx
+            }
+
+elif results.arch == 'vgg16':
+    state = {
+              'tl_arch': 'vgg16',
+              'epoch': epoch,
+              'state_dict': model.state_dict(),
+              'optimizer': optimizer.state_dict(),
+              'class_to_idx': model.class_to_idx
+            }
+
+savepath = results.save_dir
 torch.save(state,savepath)
