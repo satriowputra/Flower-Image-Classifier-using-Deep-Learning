@@ -1,19 +1,13 @@
 # importing the packages
 import argparse
-import pandas as pd
-import numpy as np
-# import matplotlib; matplotlib.use('agg')
-# import matplotlib.pyplot as plt
-# import seaborn as sb
-
 import torch
 from torch import nn, optim
-import torch.nn.functional as F
 from torchvision import datasets, transforms, models
 
 from time import time
 from workspace_utils import active_session
 
+# Defining arguments or command line option
 parser = argparse.ArgumentParser(description='Arguments',)
 
 parser.add_argument('data_directory', action='store')
@@ -160,10 +154,6 @@ with active_session():
                 running_loss = 0
                 model.train()
                 
-# plt.plot(train_losses, label='Training loss')
-# plt.plot(validation_losses, label='Validation loss')
-# plt.legend(frameon=False)
-# plt.show();
 
 # TODO: Do validation on the test set
 start = time()
