@@ -40,6 +40,6 @@ If you want to display result with picture and and plots, please use the `Image 
 
 If you want to run the in terminal / command line, please use `train.py` and `predict.py`. Output from the code will be list of predicted category and its probability.
 
-Please take note that applicable CNN architecture is only Densenet161 or Vgg16 for now. Network accuracy should be above 90% with epoch higher than 3.
+Please take note that applicable CNN architecture is only `densenet161` or `vgg16` for now. Network accuracy should be around 80% with epoch higher than 3.
 
-I also provided `Image Classifier Project Outside.ipynb` and `train_outside.py` for you who run the code outside from Udacity workspace. All other file should run fine on each workspace.
+I also provided `Image Classifier Project Outside.ipynb` and `train_outside.py` for you who run the code outside from Udacity workspace. All other file should run fine on both workspace.
