@@ -13,7 +13,7 @@ parser = argparse.ArgumentParser(description='Arguments',)
 parser.add_argument('data_directory', action='store')
 parser.add_argument('--save_dir', action='store', default='checkpoint.pth', dest='save_dir')
 parser.add_argument('--arch', action='store', default='densenet161', dest='arch')
-parser.add_argument('--learning_rate', action='store', default=0.003, dest='learning_rate', type=int)
+parser.add_argument('--learning_rate', action='store', default=0.003, dest='learning_rate', type=float)
 parser.add_argument('--hidden_unit', action='store', default=0, dest='hidden_unit', type=int)
 parser.add_argument('--epochs', action='store', default=5, dest='epochs', type=int)
 parser.add_argument('--gpu', action='store_true', default=False, dest='boolean_gpu')
@@ -56,10 +56,22 @@ trainloaders = torch.utils.data.DataLoader(train_datasets, batch_size=64, shuffl
 validloaders = torch.utils.data.DataLoader(valid_datasets, batch_size=64)
 testloaders = torch.utils.data.DataLoader(test_datasets, batch_size=64)
 
-# TODO: Build and train your network
-# Make model select GPU as processing unit if available
-device = torch.device("cuda" if results.boolean_gpu == True else "cpu")
+# Select processing unit as per user input
+if results.boolean_gpu:
+    if torch.cuda.is_available():
+        device = torch.device("cuda")
+        print("Training network will be using CUDA as specified")
+    else:
+        device = torch.device("cpu")
+        print("Cuda device is not availabe. Training will continue using CPU")
+else:
+    device = torch.device("cpu")
+    print("Train network will be using CPU")
 
+# Defining classifier output number 
+output_cat_num = len(train_datasets.class_to_idx)
+
+# Build and train the network
 if results.arch == 'densenet161':
     # Selecting pre-trained model
     model = models.densenet161(pretrained=True)
@@ -77,7 +89,7 @@ if results.arch == 'densenet161':
     model.classifier = nn.Sequential(nn.Linear(2208, unit_densenet161),
                                nn.ReLU(),
                                nn.Dropout(0.2),
-                               nn.Linear(unit_densenet161,102),
+                               nn.Linear(unit_densenet161, output_cat_num),
                                nn.LogSoftmax(dim=1))
 
 elif results.arch == 'vgg16':
@@ -97,7 +109,7 @@ elif results.arch == 'vgg16':
     model.classifier = nn.Sequential(nn.Linear(25088, unit_vgg16),
                                nn.ReLU(),
                                nn.Dropout(0.2),
-                               nn.Linear(unit_vgg16,102),
+                               nn.Linear(unit_vgg16, output_cat_num),
                                nn.LogSoftmax(dim=1))
 
 criterion = nn.NLLLoss()
@@ -107,6 +119,7 @@ optimizer = optim.Adam(model.classifier.parameters(), lr=results.learning_rate)
 
 model.to(device);
 
+# Training model
 with active_session():
     start = time()
     epochs = results.epochs
@@ -178,23 +191,13 @@ print(f"Test accuracy: {accuracy/len(testloaders):.3f}.. "
 # TODO: Save the checkpoint
 model.class_to_idx = train_datasets.class_to_idx
 model.cpu()
-if results.arch == 'densenet161':
-    state = {
-              'tl_arch': 'densenet161',
-              'epoch': epoch,
-              'state_dict': model.state_dict(),
-              'optimizer': optimizer.state_dict(),
-              'class_to_idx': model.class_to_idx
-            }
 
-elif results.arch == 'vgg16':
-    state = {
-              'tl_arch': 'vgg16',
-              'epoch': epoch,
-              'state_dict': model.state_dict(),
-              'optimizer': optimizer.state_dict(),
-              'class_to_idx': model.class_to_idx
-            }
+state = {'tl_arch': results.arch, 
+         'epoch': epoch, 
+         'classifier': model.classifier, 
+         'state_dict': model.state_dict(), 
+         'optimizer': optimizer.state_dict(),
+         'class_to_idx': model.class_to_idx}
 
 savepath = results.save_dir
-torch.save(state,savepath)
+torch.save(state, savepath)
